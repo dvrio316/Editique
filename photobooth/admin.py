@@ -1,3 +1,9 @@
 from django.contrib import admin
 
-# Register your models here.
+from .models import Strip
+
+
+@admin.register(Strip)
+class StripAdmin(admin.ModelAdmin):
+    list_display = ('id', 'title', 'owner', 'created_at')
+    list_filter = ('owner',)
