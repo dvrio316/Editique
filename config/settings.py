@@ -138,3 +138,21 @@ STORAGES = {
     },
     'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
 }
+
+
+# --- Database: Postgres on the server (DATABASE_URL from Neon), SQLite locally ---
+if os.environ.get('DATABASE_URL'):
+    import dj_database_url
+    DATABASES['default'] = dj_database_url.parse(os.environ['DATABASE_URL'], conn_max_age=600)
+
+# --- Strip images: Cloudinary when CLOUDINARY_URL is set, local media/ folder otherwise ---
+STORAGES = {
+    'default': {
+        'BACKEND': (
+            'photobooth.storage.CloudinaryStorage'
+            if os.environ.get('CLOUDINARY_URL')
+            else 'django.core.files.storage.FileSystemStorage'
+        ),
+    },
+    'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
+}
