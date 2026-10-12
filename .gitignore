@@ -10,3 +10,4 @@ db.sqlite3
 create-editique.mjs
 db.sqlite3
 create-editique.mjs
+staticfiles/
