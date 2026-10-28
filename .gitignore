@@ -13,3 +13,5 @@ create-editique.mjs
 staticfiles/
 update-editique.mjs
 update.mjs
+update-editique.mjs
+update.mjs

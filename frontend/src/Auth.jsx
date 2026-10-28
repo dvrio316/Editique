@@ -34,7 +34,7 @@ export default function Auth({ onDone, onClose }) {
       </header>
 
       <form onSubmit={submit} className="flex-1 flex flex-col items-center justify-center gap-4 px-6">
-        <p className="font-marker text-[#151515] text-2xl -rotate-2">{mode === 'login' ? 'Welcome back!' : 'Join the booth!'}</p>
+        <p className="font-marker text-[#151515] text-2xl -rotate-2">{mode === 'login' ? 'Welcome back!' : 'Join Editique!'}</p>
 
         <div className="note w-full max-w-xs p-4 flex flex-col gap-3">
           <label className="flex flex-col gap-1">
