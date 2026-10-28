@@ -23,7 +23,7 @@ export function BackgroundPanel({ doc, commit }) {
     <div>
       <Label>Which photo?</Label>
       <div className="flex gap-2 flex-wrap">
-        {['all', 0, 1, 2].map((s) => (
+        {['all', ...doc.images.map((_, k) => k)].map((s) => (
           <button key={s} className={`btn ${slot === s ? 'active' : ''}`} onClick={() => setSlot(s)}>
             {s === 'all' ? 'All' : `Photo ${s + 1}`}
           </button>

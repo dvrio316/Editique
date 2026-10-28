@@ -1,20 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import CanvasStage from './CanvasStage.jsx';
+import CanvasStage, { clampScale } from './CanvasStage.jsx';
 import { BackgroundPanel, LayersPanel, StickersPanel, TextPanel } from './Panels.jsx';
-import { CARD_H, CARD_W, PRESETS, uid, useHistory } from './utils.js';
+import { PRESETS, uid, useHistory } from './utils.js';
+import { layout } from './frames.js';
 import { api } from './api.js';
-
-const initialDoc = {
-  items: [],
-  bg: '#e9e9e9',
-  frameColor: '#ffffff',
-  images: [PRESETS[0].src, PRESETS[1].src, PRESETS[2].src],
-};
-
-const shellW = () => Math.min(window.innerWidth, 430);
-const shellH = () => Math.min(window.innerHeight, 880);
-const fitZoom = () =>
-  Math.max(0.3, Math.min(1, (shellW() - 56) / CARD_W, (shellH() - 230) / CARD_H));
 
 /* ---- small inline icons so the bar looks like the prototype ---- */
 const Svg = ({ children }) => (
@@ -25,9 +14,9 @@ const Svg = ({ children }) => (
 const IconSmile = () => (
   <Svg>
     <circle cx="12" cy="12" r="9" fill="currentColor" stroke="none" />
-    <circle cx="9" cy="10" r="1.3" fill="#1b1b8f" stroke="none" />
-    <circle cx="15" cy="10" r="1.3" fill="#1b1b8f" stroke="none" />
-    <path d="M8 14.5c1 2 7 2 8 0" stroke="#1b1b8f" />
+    <circle cx="9" cy="10" r="1.3" fill="#fff" stroke="none" />
+    <circle cx="15" cy="10" r="1.3" fill="#fff" stroke="none" />
+    <path d="M8 14.5c1 2 7 2 8 0" stroke="#fff" />
   </Svg>
 );
 const IconPen = () => (
@@ -62,16 +51,25 @@ const Tool = ({ label, active, disabled, onClick, children, title }) => (
   </button>
 );
 
-export default function DoodlePage({ photos, onBack, user, onNeedLogin, onGallery }) {
+export default function DoodlePage({ photos, frame, onBack, user, onNeedLogin, onGallery }) {
+  const L = layout(frame);
+  const CARD_W = L.w;
+  const CARD_H = L.h;
   const { doc, commit, undo, redo, canUndo, canRedo } = useHistory({
-    ...initialDoc,
-    images: photos && photos.length === 3 ? photos : initialDoc.images,
+    items: [],
+    bg: '#e9e9e9',
+    frameColor: frame.color || '#ffffff',
+    images: photos && photos.length === L.slots.length ? photos : L.slots.map((_, i) => PRESETS[i % PRESETS.length].src),
   });
   const [tool, setTool] = useState('pen');
   const [penColor, setPenColor] = useState('#e5484d');
   const [penSize, setPenSize] = useState(6);
   const [eraserSize, setEraserSize] = useState(24);
-  const [zoom, setZoom] = useState(fitZoom);
+  const [smooth, setSmooth] = useState(4); // pen stabilizer 0-10
+  const [view, setView] = useState({ scale: 0.4, x: 0, y: 0 });
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  const viewportRef = useRef(null);
+  const fitted = useRef(false);
   const [panel, setPanel] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
   const [toast, setToast] = useState('');
@@ -221,6 +219,36 @@ export default function DoodlePage({ photos, onBack, user, onNeedLogin, onGaller
     img.complete ? go() : (img.onload = go);
   };
 
+  // ---- pan / zoom viewport ----
+  const fit = useCallback((w, h) => {
+    const sc = clampScale(Math.min((w - 28) / CARD_W, (h - 28) / CARD_H));
+    setView({ scale: sc, x: (w - CARD_W * sc) / 2, y: (h - CARD_H * sc) / 2 });
+  }, [CARD_W, CARD_H]);
+
+  useEffect(() => {
+    const el = viewportRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      const w = el.clientWidth;
+      const h = el.clientHeight;
+      setSize({ w, h });
+      if (!fitted.current && w > 0 && h > 0) {
+        fitted.current = true;
+        fit(w, h);
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [fit]);
+
+  const zoomBy = (f) =>
+    setView((v) => {
+      const sc = clampScale(v.scale * f);
+      const cx = size.w / 2;
+      const cy = size.h / 2;
+      return { scale: sc, x: cx - ((cx - v.x) * sc) / v.scale, y: cy - ((cy - v.y) * sc) / v.scale };
+    });
+
   // ---- keyboard shortcuts ----
   useEffect(() => {
     const onKey = (e) => {
@@ -241,7 +269,6 @@ export default function DoodlePage({ photos, onBack, user, onNeedLogin, onGaller
     return () => window.removeEventListener('keydown', onKey);
   }, [undo, redo, selectedId, removeItem]);
 
-  const changeZoom = (z) => setZoom(Math.min(3, Math.max(0.3, +z)));
   const activeSize = tool === 'eraser' ? eraserSize : penSize;
   const setActiveSize = (v) => (tool === 'eraser' ? setEraserSize(v) : setPenSize(v));
 
@@ -256,56 +283,45 @@ export default function DoodlePage({ photos, onBack, user, onNeedLogin, onGaller
           {toast.startsWith('Saved') && <span className="underline ml-2">view</span>}
         </button>
       )}
-        {/* header */}
-        <header className="relative flex items-center justify-center pt-4 pb-2 shrink-0">
-          <h1 className="title-box text-xl md:text-2xl relative">
-            Editique
-            <svg className="absolute left-1 -bottom-2 w-[95%]" height="8" viewBox="0 0 200 8" preserveAspectRatio="none">
-              <path d="M2 5 Q 25 0 50 5 T 100 4 T 150 5 T 198 3" fill="none" stroke="#e5484d" strokeWidth="3" strokeLinecap="round" />
-            </svg>
-          </h1>
-          <button
-            className="absolute left-4 top-3 text-[#1b1b8f] text-3xl font-bold leading-none px-2"
-            onClick={onBack}
-            aria-label="Back to camera"
-            title="Back to camera"
-          >
-            ‹
-          </button>
-          <span className="absolute right-5 top-4 text-2xl -rotate-12 select-none text-[#e5484d]" aria-hidden>★</span>
+        {/* header: back, undo / redo, title, cloud save */}
+        <header className="relative flex items-center justify-between gap-2 px-3 pt-3 pb-2 shrink-0">
+          <div className="flex items-center gap-2">
+            <button className="icon-btn" onClick={onBack} aria-label="Back to camera" title="Back to camera">‹</button>
+            <button className="icon-btn" onClick={undo} disabled={!canUndo} aria-label="Undo" title="Undo (Ctrl+Z)">↶</button>
+            <button className="icon-btn" onClick={redo} disabled={!canRedo} aria-label="Redo" title="Redo (Ctrl+Shift+Z)">↷</button>
+          </div>
+          <h1 className="title-box text-base">EDITIQUE</h1>
+          <button className="icon-btn" onClick={saveToServer} aria-label={user ? 'Save to cloud' : 'Log in to save'} title={user ? 'Save to your account' : 'Log in to save'}>☁</button>
         </header>
 
-        {/* scrollable, zoomable canvas area */}
-        <main
-          className="flex-1 overflow-auto scroll-hide mx-3 rounded-lg bg-[#ececec]/80"
-          onWheel={(e) => {
-            if (e.ctrlKey) {
-              e.preventDefault();
-              changeZoom(zoom - e.deltaY * 0.002);
-            }
-          }}
-        >
-          <div className="min-h-full flex items-start justify-center px-4 pb-4 pt-8">
-            <div className="relative">
-              <span className="tape" style={{ left: '50%', top: -14, marginLeft: -45, transform: 'rotate(3deg)', zIndex: 5 }} />
-              <div className="card-shadow">
-                <CanvasStage
-                  ref={stageRef}
-                  doc={doc}
-                  tool={tool}
-                  penColor={penColor}
-                  penSize={penSize}
-                  eraserSize={eraserSize}
-                  zoom={zoom}
-                  selectedId={selectedId}
-                  setSelectedId={setSelectedId}
-                  commit={commit}
-                  onStrokeEnd={onStrokeEnd}
-                  onDuplicate={duplicateSelected}
-                  onDelete={() => removeItem(selectedId)}
-                />
-              </div>
-            </div>
+        {/* pan / zoom canvas: pinch or Ctrl+scroll to zoom, two fingers / scroll / Hand tool / Space to pan */}
+        <main ref={viewportRef} className="canvas-area relative flex-1 mx-3 overflow-hidden">
+          {size.w > 0 && (
+            <CanvasStage
+              ref={stageRef}
+              doc={doc}
+              frame={frame}
+              tool={tool}
+              penColor={penColor}
+              penSize={penSize}
+              eraserSize={eraserSize}
+              smooth={smooth}
+              view={view}
+              setView={setView}
+              size={size}
+              selectedId={selectedId}
+              setSelectedId={setSelectedId}
+              commit={commit}
+              onStrokeEnd={onStrokeEnd}
+              onDuplicate={duplicateSelected}
+              onDelete={() => removeItem(selectedId)}
+            />
+          )}
+          <div className="zoombar absolute right-2 bottom-2 z-20 flex items-center gap-1">
+            <button className="icon-btn sm" onClick={() => zoomBy(1 / 1.25)} aria-label="Zoom out">−</button>
+            <span className="px-1 text-sm min-w-[44px] text-center">{Math.round(view.scale * 100)}%</span>
+            <button className="icon-btn sm" onClick={() => zoomBy(1.25)} aria-label="Zoom in">＋</button>
+            <button className="icon-btn sm" onClick={() => fit(size.w, size.h)} aria-label="Fit to screen" title="Fit to screen">⤢</button>
           </div>
         </main>
 
@@ -337,7 +353,7 @@ export default function DoodlePage({ photos, onBack, user, onNeedLogin, onGaller
         )}
 
         {/* bottom bar: smiley, pen, color wheel, then ">" scrolls to the rest */}
-        <nav className="shrink-0 mx-3 my-3 rounded-2xl bg-[#e8e8ee] border-2 border-[#2b2b2b] relative">
+        <nav className="shrink-0 mx-3 my-3 sketch-bar relative">
           <div ref={barRef} onScroll={onBarScroll} className="flex items-start gap-4 px-4 py-2 pr-14 overflow-x-auto scroll-hide">
             <Tool label="Stickers" active={panel === 'stickers'} onClick={() => togglePanel('stickers')}>
               <IconSmile />
@@ -394,6 +410,13 @@ export default function DoodlePage({ photos, onBack, user, onNeedLogin, onGaller
               <span>Size {activeSize}</span>
             </label>
 
+            <label className="tool" title="Pen stabilizer: higher = smoother lines">
+              <span className="flex items-center justify-center h-12">
+                <input type="range" min={0} max={10} value={smooth} onChange={(e) => setSmooth(+e.target.value)} className="w-24" aria-label="Pen stabilizer" />
+              </span>
+              <span>Smooth {smooth}</span>
+            </label>
+
             <Tool
               label="Eraser"
               active={tool === 'eraser'}
@@ -408,6 +431,9 @@ export default function DoodlePage({ photos, onBack, user, onNeedLogin, onGaller
             <Tool label="Select" active={tool === 'select'} onClick={() => setTool('select')} title="Select / move">
               <span style={{ fontSize: 22 }}>☝</span>
             </Tool>
+            <Tool label="Hand" active={tool === 'hand'} onClick={() => { setTool('hand'); setSelectedId(null); }} title="Move the canvas (or hold Space)">
+              <span style={{ fontSize: 22 }}>✋</span>
+            </Tool>
             <Tool label="Text" active={panel === 'text'} onClick={() => togglePanel('text')}>
               <b style={{ fontFamily: 'Libre Baskerville, serif' }}>Aa</b>
             </Tool>
@@ -417,37 +443,9 @@ export default function DoodlePage({ photos, onBack, user, onNeedLogin, onGaller
             <Tool label="Layers" active={panel === 'layers'} onClick={() => togglePanel('layers')}>
               <IconLayers />
             </Tool>
-            <Tool label="Undo" disabled={!canUndo} onClick={undo} title="Undo (Ctrl+Z)">
-              ↶
-            </Tool>
-            <Tool label="Redo" disabled={!canRedo} onClick={redo} title="Redo (Ctrl+Shift+Z)">
-              ↷
-            </Tool>
-
-            {/* zoom */}
-            <div className="tool" style={{ cursor: 'default' }}>
-              <span className="flex items-center h-12 gap-1">
-                <button onClick={() => changeZoom(zoom - 0.1)} className="text-2xl w-7 leading-none" aria-label="Zoom out">
-                  −
-                </button>
-                <input type="range" min={0.3} max={3} step={0.05} value={zoom} onChange={(e) => changeZoom(e.target.value)} className="w-24" aria-label="Zoom" />
-                <button onClick={() => changeZoom(zoom + 0.1)} className="text-2xl w-7 leading-none" aria-label="Zoom in">
-                  ＋
-                </button>
-              </span>
-              <span>
-                Zoom {Math.round(zoom * 100)}%{' '}
-                <button className="underline" onClick={() => setZoom(fitZoom())}>
-                  fit
-                </button>
-              </span>
-            </div>
 
             <Tool label="Save" onClick={exportPng}>
               ⬇
-            </Tool>
-            <Tool label={user ? 'Cloud' : 'Log in'} onClick={saveToServer} title="Save to your account on the server">
-              ☁
             </Tool>
             <Tool label="Print" onClick={printIt}>
               ⎙
@@ -457,7 +455,7 @@ export default function DoodlePage({ photos, onBack, user, onNeedLogin, onGaller
           {/* chevron like the prototype */}
           <button
             onClick={scrollBar}
-            className="absolute right-0 top-0 h-full w-12 grid place-items-center text-[#1b1b8f] text-4xl font-bold rounded-r-2xl bg-gradient-to-l from-[#e8e8ee] via-[#e8e8ee] to-transparent"
+            className="absolute right-0 top-0 h-full w-12 grid place-items-center text-[#151515] text-4xl font-bold rounded-r-2xl bg-gradient-to-l from-white via-white to-transparent"
             aria-label={barEnd ? 'Back to start' : 'More tools'}
           >
             {barEnd ? '‹' : '›'}

@@ -11,3 +11,5 @@ create-editique.mjs
 db.sqlite3
 create-editique.mjs
 staticfiles/
+update-editique.mjs
+update.mjs
