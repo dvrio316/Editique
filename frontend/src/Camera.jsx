@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { PHOTOS } from './utils.js';
+import { layout } from './frames.js';
 
-const SHOTS = 3;
 const OUT_W = 960;
-const OUT_H = Math.round(OUT_W / (PHOTOS[0].w / PHOTOS[0].h));
 
 // draw any image/video into a "cover"-cropped canvas matching a photo slot
-function coverShot(source, sw, sh, mirror) {
+function coverShot(source, sw, sh, mirror, OUT_H) {
   const c = document.createElement('canvas');
   c.width = OUT_W;
   c.height = OUT_H;
@@ -24,19 +22,22 @@ function coverShot(source, sw, sh, mirror) {
   return c.toDataURL('image/jpeg', 0.92);
 }
 
-const fileToShot = (file) =>
+const fileToShot = (file, outH) =>
   new Promise((resolve) => {
     const url = URL.createObjectURL(file);
     const img = new window.Image();
     img.onload = () => {
-      resolve(coverShot(img, img.width, img.height, false));
+      resolve(coverShot(img, img.width, img.height, false, outH));
       URL.revokeObjectURL(url);
     };
     img.onerror = () => resolve(null);
     img.src = url;
   });
 
-export default function Camera({ onDone, onBack }) {
+export default function Camera({ onDone, onBack, frame }) {
+  const { slots } = layout(frame);
+  const SHOTS = slots.length;
+  const OUT_H = Math.round(OUT_W / (slots[0].w / slots[0].h));
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const timerRef = useRef(null);
@@ -83,7 +84,7 @@ export default function Camera({ onDone, onBack }) {
   const capture = useCallback(() => {
     const v = videoRef.current;
     if (!v || !v.videoWidth) return;
-    const shot = coverShot(v, v.videoWidth, v.videoHeight, facing === 'user');
+    const shot = coverShot(v, v.videoWidth, v.videoHeight, facing === 'user', OUT_H);
     setFlash(true);
     setTimeout(() => setFlash(false), 160);
     setShots((s) => (s.length < SHOTS ? [...s, shot] : s));
@@ -123,7 +124,7 @@ export default function Camera({ onDone, onBack }) {
   const onFiles = async (e) => {
     const files = [...(e.target.files || [])].slice(0, SHOTS - shots.length);
     e.target.value = '';
-    const out = (await Promise.all(files.map(fileToShot))).filter(Boolean);
+    const out = (await Promise.all(files.map((f) => fileToShot(f, OUT_H)))).filter(Boolean);
     setShots((s) => [...s, ...out].slice(0, SHOTS));
   };
 
@@ -133,24 +134,24 @@ export default function Camera({ onDone, onBack }) {
   return (
     <>
       <header className="relative flex items-center justify-center pt-4 pb-2 shrink-0">
-        <button className="absolute left-4 top-3 text-[#1b1b8f] text-3xl font-bold leading-none px-2" onClick={onBack} aria-label="Back">
+        <button className="absolute left-4 top-3 text-[#151515] text-3xl font-bold leading-none px-2" onClick={onBack} aria-label="Back">
           ‹
         </button>
         <h1 className="title-box text-xl">Editique</h1>
-        <span className="absolute right-5 top-4 text-sm font-marker text-[#1b1b8f] -rotate-3">
+        <span className="absolute right-5 top-4 text-sm font-marker text-[#151515] -rotate-3">
           {shots.length}/{SHOTS}
         </span>
       </header>
 
       <main className="flex-1 overflow-y-auto scroll-hide px-4 pb-3 flex flex-col items-center gap-3">
-        <p className="font-marker text-[#1b1b8f] text-lg -rotate-1 mt-1">
+        <p className="font-marker text-[#151515] text-lg -rotate-1 mt-1">
           {full ? 'Looking good!' : running ? 'Strike a pose…' : 'Ready for 3 shots?'}
         </p>
 
         {/* viewfinder */}
         <div className="relative w-full max-w-[340px] card-shadow bg-white p-2">
           <span className="tape" style={{ left: '50%', top: -14, marginLeft: -45, transform: 'rotate(-3deg)', zIndex: 5 }} />
-          <div className="relative w-full overflow-hidden bg-[#222]" style={{ aspectRatio: `${PHOTOS[0].w} / ${PHOTOS[0].h}` }}>
+          <div className="relative w-full overflow-hidden bg-[#222]" style={{ aspectRatio: `${slots[0].w} / ${slots[0].h}` }}>
             <video
               ref={videoRef}
               playsInline
@@ -180,7 +181,7 @@ export default function Camera({ onDone, onBack }) {
               key={i}
               disabled={!shots[i] || running}
               onClick={() => setShots((s) => s.filter((_, j) => j !== i))}
-              className="relative wobbly overflow-hidden bg-[#ececec] grid place-items-center text-[#1b1b8f]/50"
+              className="relative wobbly overflow-hidden bg-[#ececec] grid place-items-center text-[#151515]/50"
               style={{ width: 82, height: 77 }}
               title={shots[i] ? 'Tap to retake this one' : `Photo ${i + 1}`}
             >
@@ -198,7 +199,7 @@ export default function Camera({ onDone, onBack }) {
       </main>
 
       {/* controls */}
-      <nav className="shrink-0 mx-3 my-3 rounded-2xl bg-[#e8e8ee] border-2 border-[#2b2b2b] px-4 py-3 flex items-center justify-center gap-5">
+      <nav className="shrink-0 mx-3 my-3 rounded-2xl bg-[#ffffff] border-2 border-[#2b2b2b] px-4 py-3 flex items-center justify-center gap-5">
         <button className="tool" onClick={() => fileRef.current?.click()} disabled={full || running}>
           <span className="dot" style={{ fontSize: 20 }}>🖼</span>
           <span>Upload</span>

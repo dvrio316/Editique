@@ -27,14 +27,14 @@ export default function Auth({ onDone, onClose }) {
   return (
     <div className="absolute inset-0 z-50 flex flex-col bg-white" style={{ backgroundImage: 'radial-gradient(rgba(27,27,143,0.12) 1px, transparent 1.2px)', backgroundSize: '16px 16px' }}>
       <header className="relative flex items-center justify-center pt-4 pb-2 shrink-0">
-        <button className="absolute left-4 top-3 text-[#1b1b8f] text-3xl font-bold leading-none px-2" onClick={onClose} aria-label="Close">
+        <button className="absolute left-4 top-3 text-[#151515] text-3xl font-bold leading-none px-2" onClick={onClose} aria-label="Close">
           ‹
         </button>
         <h1 className="title-box text-xl">Editique</h1>
       </header>
 
       <form onSubmit={submit} className="flex-1 flex flex-col items-center justify-center gap-4 px-6">
-        <p className="font-marker text-[#1b1b8f] text-2xl -rotate-2">{mode === 'login' ? 'Welcome back!' : 'Join the booth!'}</p>
+        <p className="font-marker text-[#151515] text-2xl -rotate-2">{mode === 'login' ? 'Welcome back!' : 'Join the booth!'}</p>
 
         <div className="note w-full max-w-xs p-4 flex flex-col gap-3">
           <label className="flex flex-col gap-1">
@@ -55,13 +55,13 @@ export default function Auth({ onDone, onClose }) {
           {error && <p className="text-[#c0262d] text-base leading-tight">{error}</p>}
         </div>
 
-        <button className="btn font-marker text-xl" style={{ background: '#1b1b8f', color: '#fff', padding: '0.3rem 1.6rem' }} disabled={busy}>
+        <button className="btn font-marker text-xl" style={{ background: '#151515', color: '#fff', padding: '0.3rem 1.6rem' }} disabled={busy}>
           {busy ? '…' : mode === 'login' ? 'Log in' : 'Sign up'}
         </button>
 
         <button
           type="button"
-          className="underline text-[#1b1b8f]"
+          className="underline text-[#151515]"
           onClick={() => {
             setMode(mode === 'login' ? 'register' : 'login');
             setError('');
