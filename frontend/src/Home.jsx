@@ -2,8 +2,10 @@
 export default function Home({ user, online, onStart, onSkip, onLogin, onLogout, onGallery }) {
   const ink = '#151515';
   return (
-    <div className="relative flex-1 flex flex-col items-center overflow-y-auto scroll-hide px-5 pb-6">
-      <div className="self-end pt-4 text-right z-10">
+    // 1. Added 'justify-center' to vertically center the flex column
+    <div className="relative flex-1 flex flex-col items-center justify-center overflow-y-auto scroll-hide px-5 pb-6">
+      
+      <div className="absolute top-4 right-5 text-right z-10">
         {user ? (
           <>
             <div className="hand text-base">hi, {user.username}!</div>
@@ -61,7 +63,6 @@ export default function Home({ user, online, onStart, onSkip, onLogin, onLogout,
       <div className="flex flex-col items-center gap-3 mt-3">
         {user && <button className="btn" onClick={onGallery}>my strips</button>}
         <button className="underline hand" onClick={onSkip}>or just try the doodle page</button>
-        {!online && <p className="text-sm text-[#c0262d] text-center">Server offline: you can still doodle, but saving online is unavailable.</p>}
       </div>
     </div>
   );

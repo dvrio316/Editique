@@ -291,7 +291,6 @@ export default function DoodlePage({ photos, frame, onBack, user, onNeedLogin, o
             <button className="icon-btn" onClick={redo} disabled={!canRedo} aria-label="Redo" title="Redo (Ctrl+Shift+Z)">↷</button>
           </div>
           <h1 className="title-box text-base">EDITIQUE</h1>
-          <button className="icon-btn" onClick={saveToServer} aria-label={user ? 'Save to cloud' : 'Log in to save'} title={user ? 'Save to your account' : 'Log in to save'}>☁</button>
         </header>
 
         {/* pan / zoom canvas: pinch or Ctrl+scroll to zoom, two fingers / scroll / Hand tool / Space to pan */}
