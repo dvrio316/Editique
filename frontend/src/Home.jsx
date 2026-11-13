@@ -1,8 +1,6 @@
-// Doodle-style booth: hand-drawn lines (wobble filter), handwriting labels, big "enter" button.
 export default function Home({ user, online, onStart, onSkip, onLogin, onLogout, onGallery }) {
   const ink = '#151515';
   return (
-    // 1. Added 'justify-center' to vertically center the flex column
     <div className="relative flex-1 flex flex-col items-center justify-center overflow-y-auto scroll-hide px-5 pb-6">
       
       <div className="absolute top-4 right-5 text-right z-10">
@@ -60,10 +58,11 @@ export default function Home({ user, online, onStart, onSkip, onLogin, onLogout,
       </div>
 
       <p className="hand text-xl text-center leading-snug -rotate-1 mt-2">snap 3 pics, then doodle all over them!</p>
+
       <div className="flex flex-col items-center gap-3 mt-3">
         {user && <button className="btn" onClick={onGallery}>my strips</button>}
-        <button className="underline hand" onClick={onSkip}>or just try the doodle page</button>
       </div>
+      
     </div>
   );
 }
