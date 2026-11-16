@@ -194,6 +194,7 @@ export default function Home({ onStart, onSkip }) {
       <div className="flex flex-col items-center gap-3 mt-3">
 
       </div>
+      
     </div>
   );
 }

@@ -22,18 +22,6 @@ function coverShot(source, sw, sh, mirror, OUT_H) {
   return c.toDataURL('image/jpeg', 0.92);
 }
 
-const fileToShot = (file, outH) =>
-  new Promise((resolve) => {
-    const url = URL.createObjectURL(file);
-    const img = new window.Image();
-    img.onload = () => {
-      resolve(coverShot(img, img.width, img.height, false, outH));
-      URL.revokeObjectURL(url);
-    };
-    img.onerror = () => resolve(null);
-    img.src = url;
-  });
-
 export default function Camera({ onDone, onBack, frame }) {
   const { slots } = layout(frame);
   const SHOTS = slots.length;
@@ -41,7 +29,6 @@ export default function Camera({ onDone, onBack, frame }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const timerRef = useRef(null);
-  const fileRef = useRef(null);
   const [shots, setShots] = useState([]);
   const [count, setCount] = useState(null);
   const [running, setRunning] = useState(false);
@@ -55,7 +42,7 @@ export default function Camera({ onDone, onBack, frame }) {
     let cancelled = false;
     setReady(false);
     if (!navigator.mediaDevices?.getUserMedia) {
-      setError('Camera is not available in this browser. You can upload photos instead.');
+      setError('Camera is not available in this browser.');
       return;
     }
     navigator.mediaDevices
@@ -71,7 +58,7 @@ export default function Camera({ onDone, onBack, frame }) {
         }
         setReady(true);
       })
-      .catch(() => !cancelled && setError('We could not open the camera. Allow camera access, or upload photos instead.'));
+      .catch(() => !cancelled && setError('We could not open the camera. Allow camera access.'));
     return () => {
       cancelled = true;
       streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -119,13 +106,6 @@ export default function Camera({ onDone, onBack, frame }) {
     timerRef.current = null;
     setCount(null);
     setRunning(false);
-  };
-
-  const onFiles = async (e) => {
-    const files = [...(e.target.files || [])].slice(0, SHOTS - shots.length);
-    e.target.value = '';
-    const out = (await Promise.all(files.map((f) => fileToShot(f, OUT_H)))).filter(Boolean);
-    setShots((s) => [...s, ...out].slice(0, SHOTS));
   };
 
   const full = shots.length >= SHOTS;
@@ -200,11 +180,7 @@ export default function Camera({ onDone, onBack, frame }) {
 
       {/* controls */}
       <nav className="shrink-0 mx-3 my-3 rounded-2xl bg-[#ffffff] border-2 border-[#2b2b2b] px-4 py-3 flex items-center justify-center gap-5">
-        <button className="tool" onClick={() => fileRef.current?.click()} disabled={full || running}>
-          <span className="dot" style={{ fontSize: 20 }}>🖼</span>
-          <span>Upload</span>
-        </button>
-
+        
         {full ? (
           <>
             <button className="tool" onClick={() => setShots([])}>
@@ -236,7 +212,6 @@ export default function Camera({ onDone, onBack, frame }) {
           <span className="dot" style={{ fontSize: 24 }}>⟲</span>
           <span>Flip</span>
         </button>
-        <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={onFiles} />
       </nav>
     </>
   );
