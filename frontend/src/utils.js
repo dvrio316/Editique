@@ -24,7 +24,15 @@ export const FONTS = [
 ];
 
 // 10 sticker slots. Swap these for image URLs later if you want custom artwork.
-export const STICKERS = ['⭐', '❤️', '🌈', '🎀', '😎', '🌸', '✨', '🍓', '👑', '🦋'];
+export const STICKER_GROUPS = [
+  { name: '💖', items: ['❤️', '💖', '💗', '💘', '💝', '💕', '💋', '🩷', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '😍', '🥰', '😘'] },
+  { name: '✨', items: ['⭐', '🌟', '✨', '💫', '⚡', '🔥', '🎉', '🎊', '🎈', '🎀', '🎁', '👑', '💎', '🪩', '🥳', '🎂'] },
+  { name: '😎', items: ['😎', '😂', '🤪', '😜', '🤩', '😇', '🥹', '😭', '🤭', '😏', '😈', '👻', '🤡', '👽', '🤖', '💀'] },
+  { name: '🌸', items: ['🌈', '🌸', '🌷', '🌹', '🌻', '🌼', '🍀', '🌙', '☀️', '☁️', '❄️', '🦋', '🐝', '🐱', '🐶', '🐰', '🐻', '🦄', '🍄', '🌵'] },
+  { name: '🍓', items: ['🍓', '🍒', '🍑', '🍉', '🍕', '🍔', '🍟', '🍩', '🍪', '🧁', '🍦', '🍭', '🍫', '☕', '🧋', '🍹'] },
+  { name: '🎵', items: ['🎵', '🎶', '🎤', '🎧', '🎸', '📷', '📸', '🎞️', '🎬', '🕶️', '👟', '💄', '✌️', '👍', '🙌', '💅'] },
+];
+export const STICKERS = STICKER_GROUPS.flatMap((g) => g.items);
 
 const svgUri = (svg) => `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 

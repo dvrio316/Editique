@@ -17,6 +17,45 @@ function Preview({ frame }) {
   );
 }
 
+// Line up the photo windows with an uploaded frame picture
+function Adjust({ adj, setAdj, onUse, onCancel }) {
+  const p = adj.params;
+  const set = (k) => (v) => setAdj({ ...adj, params: { ...p, [k]: v } });
+  return (
+    <div className="absolute inset-0 z-30 bg-white flex flex-col overflow-y-auto scroll-hide p-4 gap-3">
+      <h2 className="hand text-2xl text-center">line up the photo windows</h2>
+      <div className="relative mx-auto border-2 border-[#151515]" style={{ width: 200, aspectRatio: `${CARD_W} / ${p.h}` }}>
+        <img src={adj.img.src} alt="your frame" className="absolute inset-0 w-full h-full" />
+        {Array.from({ length: p.count }, (_, i) => (
+          <div
+            key={i}
+            className="absolute"
+            style={{
+              left: `${(p.left / CARD_W) * 100}%`,
+              top: `${((p.top + i * (p.height + p.gap)) / p.h) * 100}%`,
+              width: `${(p.width / CARD_W) * 100}%`,
+              height: `${(p.height / p.h) * 100}%`,
+              outline: '2px solid #151515',
+              background: 'rgba(0,0,0,0.12)',
+            }}
+          />
+        ))}
+      </div>
+      <Slider label="Photos" value={p.count} min={1} max={6} onChange={set('count')} />
+      <Slider label="Left" value={p.left} min={0} max={300} onChange={set('left')} />
+      <Slider label="Top" value={p.top} min={0} max={p.h} onChange={set('top')} />
+      <Slider label="Width" value={p.width} min={40} max={CARD_W} onChange={set('width')} />
+      <Slider label="Height" value={p.height} min={40} max={p.h} onChange={set('height')} />
+      <Slider label="Gap" value={p.gap} min={0} max={200} onChange={set('gap')} />
+      <div className="flex gap-3 justify-center pb-2">
+        <button className="btn" onClick={onCancel}>cancel</button>
+        <button className="btn" style={{ background: '#e6e6e6' }} onClick={onUse}>use this frame</button>
+      </div>
+    </div>
+  );
+}
+
+// Step before the camera: flip through frames with the arrows, customize, or upload your own.
 export default function Frames({ onBack, onSelect }) {
   const [frames, setFrames] = useState(BUILTIN);
   const [i, setI] = useState(0);
@@ -77,8 +116,8 @@ export default function Frames({ onBack, onSelect }) {
         )}
       </main>
 
-      <div className="shrink-0 flex flex-col items-center pb-6">
-        <button className="btn" style={{ background: '#7ddf9a', padding: '0.3rem 2rem', fontSize: 22 }} onClick={() => onSelect(f)}>
+      <div className="shrink-0 flex flex-col items-center pb-4">
+        <button className="btn" style={{ background: '#e6e6e6', padding: '0.3rem 2rem', fontSize: 22 }} onClick={() => onSelect(f)}>
           select ●
         </button>
       </div>

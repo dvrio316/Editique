@@ -2,6 +2,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useSta
 import { Stage, Layer, Rect, Line, Text, Image as KImage, Transformer, Group } from 'react-konva';
 import { uid, useImage } from './utils.js';
 import { layout } from './frames.js';
+import { getFilter } from './filters.js';
 
 // "cover" crop so the photo fills its slot without stretching
 function coverCrop(img, r) {
@@ -15,14 +16,29 @@ function coverCrop(img, r) {
   return { x: 0, y: (img.height - h) / 2, width: img.width, height: h };
 }
 
-function PhotoSlot({ rect, src, bg }) {
+function PhotoSlot({ rect, src, bg, filter }) {
   const img = useImage(src);
+  const ref = useRef(null);
+  const def = getFilter(filter);
+  useEffect(() => {
+    const n = ref.current;
+    if (!n || !img) return;
+    n.clearCache();
+    if (def) {
+      n.setAttrs(def.attrs || {});
+      n.filters(def.filters);
+      n.cache({ pixelRatio: 2 });
+    } else {
+      n.filters([]);
+    }
+    n.getLayer()?.batchDraw();
+  }, [img, def, rect.w, rect.h]);
   return (
     <>
       <Group clipX={rect.x} clipY={rect.y} clipWidth={rect.w} clipHeight={rect.h}>
         <Rect x={rect.x} y={rect.y} width={rect.w} height={rect.h} fill={bg} />
         {img && (
-          <KImage image={img} x={rect.x} y={rect.y} width={rect.w} height={rect.h} crop={coverCrop(img, rect)} />
+          <KImage ref={ref} image={img} x={rect.x} y={rect.y} width={rect.w} height={rect.h} crop={coverCrop(img, rect)} />
         )}
       </Group>
       <Rect x={rect.x} y={rect.y} width={rect.w} height={rect.h} stroke="rgba(0,0,0,0.15)" strokeWidth={2} />
@@ -31,7 +47,7 @@ function PhotoSlot({ rect, src, bg }) {
 }
 
 // the locked frame: color/film holes/caption, photo slots, or an uploaded picture on top
-export function FrameArt({ frame, L, color, bg, images }) {
+export function FrameArt({ frame, L, color, bg, images, filter }) {
   const overlay = useImage(frame.image);
   const holes = [];
   if (frame.holes && !frame.image) {
@@ -47,7 +63,7 @@ export function FrameArt({ frame, L, color, bg, images }) {
         </Group>
       ))}
       {L.slots.map((r, i) => (
-        <PhotoSlot key={i} rect={r} src={images[i]} bg={bg} />
+        <PhotoSlot key={i} rect={r} src={images[i]} bg={bg} filter={filter} />
       ))}
       {!frame.image && !frame.holes && frame.caption && (
         <Text x={0} y={L.h - 100} width={L.w} align="center" text={frame.caption} fontFamily="Libre Baskerville" fontSize={30} fill={frame.captionColor || '#151515'} />
@@ -84,6 +100,9 @@ const CanvasStage = forwardRef(function CanvasStage(
   const target = useRef(null); // latest raw pointer position
   const pointers = useRef(new Map());
   const gesture = useRef(null);
+  const itemGesture = useRef(null); // two-finger twist/pinch on the selected sticker or text
+  const patchRef = useRef(null);
+  const coarse = typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches;
   const panRef = useRef(null);
   const spaceRef = useRef(false);
   const viewRef = useRef(view);
@@ -223,6 +242,12 @@ const CanvasStage = forwardRef(function CanvasStage(
   useEffect(() => {
     const end = (ev) => {
       pointers.current.delete(ev.pointerId);
+      const ig = itemGesture.current;
+      if (ig && pointers.current.size < 2) {
+        itemGesture.current = null;
+        patchRef.current?.(ig.id, { x: ig.node.x(), y: ig.node.y(), rotation: ig.node.rotation(), scaleX: ig.node.scaleX(), scaleY: ig.node.scaleY() });
+        return;
+      }
       if (pointers.current.size < 2) gesture.current = null;
       if (pointers.current.size === 0) panRef.current = null;
       if (!drawing.current) return;
@@ -260,6 +285,36 @@ const CanvasStage = forwardRef(function CanvasStage(
       setLive(null);
       panRef.current = null;
       const [a, b] = [...pointers.current.values()];
+      // a finger on (or near) the selected sticker/text: twist rotates it, pinch resizes it
+      const sel = tool === 'select' && selectedId ? stageRef.current?.findOne('#' + selectedId) : null;
+      if (sel) {
+        const rect = wrapRef.current.getBoundingClientRect();
+        const r = sel.getClientRect();
+        const pad = 48;
+        const onItem = [a, b].some((p) => {
+          const px = p.x - rect.left;
+          const py = p.y - rect.top;
+          return px >= r.x - pad && px <= r.x + r.width + pad && py >= r.y - pad && py <= r.y + r.height + pad;
+        });
+        if (onItem) {
+          sel.stopDrag?.();
+          gesture.current = null;
+          itemGesture.current = {
+            id: selectedId,
+            node: sel,
+            a0: Math.atan2(b.y - a.y, b.x - a.x),
+            d0: Math.hypot(a.x - b.x, a.y - b.y) || 1,
+            r0: sel.rotation(),
+            sx: sel.scaleX(),
+            sy: sel.scaleY(),
+            x0: sel.x(),
+            y0: sel.y(),
+            cx0: (a.x + b.x) / 2,
+            cy0: (a.y + b.y) / 2,
+          };
+          return;
+        }
+      }
       gesture.current = {
         d: Math.hypot(a.x - b.x, a.y - b.y) || 1,
         cx: (a.x + b.x) / 2,
@@ -271,6 +326,27 @@ const CanvasStage = forwardRef(function CanvasStage(
   const onMoveCapture = (e) => {
     if (!pointers.current.has(e.pointerId)) return;
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const ig = itemGesture.current;
+    if (ig && pointers.current.size >= 2) {
+      e.stopPropagation();
+      const [a, b] = [...pointers.current.values()];
+      let rot = ig.r0 + ((Math.atan2(b.y - a.y, b.x - a.x) - ig.a0) * 180) / Math.PI;
+      const snapped = Math.round(rot / 15) * 15; // gentle snap every 15 degrees
+      if (Math.abs(rot - snapped) < 4) rot = snapped;
+      const f = Math.min(6, Math.max(0.2, Math.hypot(b.x - a.x, b.y - a.y) / ig.d0));
+      const v = viewRef.current.scale;
+      ig.node.setAttrs({
+        rotation: rot,
+        scaleX: ig.sx * f,
+        scaleY: ig.sy * f,
+        x: ig.x0 + ((a.x + b.x) / 2 - ig.cx0) / v,
+        y: ig.y0 + ((a.y + b.y) / 2 - ig.cy0) / v,
+      });
+      trRef.current?.forceUpdate();
+      ig.node.getLayer()?.batchDraw();
+      updateBox();
+      return;
+    }
     if (!gesture.current || pointers.current.size < 2) return;
     e.stopPropagation();
     const [a, b] = [...pointers.current.values()];
@@ -289,6 +365,7 @@ const CanvasStage = forwardRef(function CanvasStage(
   // ---- item updates ----
   const patch = (id, props) =>
     commit((d) => ({ ...d, items: d.items.map((it) => (it.id === id ? { ...it, ...props } : it)) }));
+  patchRef.current = patch;
 
   const onTransformEnd = (item, e) => {
     const n = e.target;
@@ -393,7 +470,7 @@ const CanvasStage = forwardRef(function CanvasStage(
 
         {/* Locked frame layer: eraser can never touch this */}
         <Layer listening={false}>
-          <FrameArt frame={frame} L={L} color={doc.frameColor} bg={doc.bg} images={doc.images} />
+          <FrameArt frame={frame} L={L} color={doc.frameColor} bg={doc.bg} images={doc.images} filter={doc.filter} />
         </Layer>
 
         {/* Doodle layer, clipped to the card */}
@@ -413,13 +490,13 @@ const CanvasStage = forwardRef(function CanvasStage(
             keepRatio
             rotateEnabled
             enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right']}
-            borderStroke="#e5484d"
+            borderStroke="#151515"
             borderDash={[6, 4]}
             borderStrokeWidth={2}
             anchorStroke="#151515"
             anchorFill="#ffffff"
-            anchorSize={14}
-            rotateAnchorOffset={28}
+            anchorSize={coarse ? 24 : 14}
+            rotateAnchorOffset={coarse ? 40 : 28}
             boundBoxFunc={(o, n) => (n.width < 20 || n.height < 20 ? o : n)}
           />
         </Layer>
@@ -433,7 +510,7 @@ const CanvasStage = forwardRef(function CanvasStage(
           <button className="btn" style={{ minWidth: 36, minHeight: 36, padding: 0, transform: 'none' }} title="Duplicate" onClick={onDuplicate}>
             ⧉
           </button>
-          <button className="btn" style={{ minWidth: 36, minHeight: 36, padding: 0, transform: 'none', background: '#ffb3b3' }} title="Delete" onClick={onDelete}>
+          <button className="btn" style={{ minWidth: 36, minHeight: 36, padding: 0, transform: 'none', background: '#ffffff' }} title="Delete" onClick={onDelete}>
             ✕
           </button>
         </div>

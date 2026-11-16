@@ -147,7 +147,7 @@ export default function Camera({ onDone, onBack, frame }) {
             )}
             {count !== null && (
               <div className="absolute inset-0 grid place-items-center">
-                <span className="font-marker text-white text-8xl drop-shadow-[0_4px_0_rgba(27,27,143,0.8)]">{count}</span>
+                <span className="font-marker text-white text-8xl drop-shadow-[0_4px_0_rgba(0,0,0,0.8)]">{count}</span>
               </div>
             )}
             {flash && <div className="absolute inset-0 bg-white" />}
@@ -199,7 +199,7 @@ export default function Camera({ onDone, onBack, frame }) {
           </button>
         ) : (
           <button className="tool" onClick={() => setRunning(true)} disabled={!ready}>
-            <span className="dot" style={{ width: 64, height: 64, background: '#e5484d', fontSize: 28 }}>●</span>
+            <span className="dot" style={{ width: 64, height: 64, background: '#151515', fontSize: 28 }}>●</span>
             <span className="font-marker">{shots.length ? 'Continue' : 'Start'}</span>
           </button>
         )}

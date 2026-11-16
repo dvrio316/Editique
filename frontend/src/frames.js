@@ -5,9 +5,9 @@ export const CARD_W = 400;
 export const BUILTIN = [
   { id: 'classic', name: 'Classic', count: 3, color: '#ffffff', holes: false, caption: 'Editique', captionColor: '#151515' },
   { id: 'film', name: 'Film', count: 4, color: '#1a1410', holes: true, holeColor: '#ffffff' },
-  { id: 'maroon', name: 'Maroon', count: 3, color: '#7a0f1f', holes: false, caption: 'Editique', captionColor: '#fdf3e9' },
-  { id: 'redfilm', name: 'Red film', count: 4, color: '#b4401a', holes: true, holeColor: '#fff3e0' },
-  { id: 'custom', name: 'Customize', count: 3, color: '#ffd6e0', holes: false, caption: 'Editique', captionColor: '#151515', custom: true },
+  { id: 'maroon', name: 'Dark', count: 3, color: '#151515', holes: false, caption: 'Editique', captionColor: '#ffffff' },
+  { id: 'redfilm', name: 'Grey film', count: 4, color: '#8a8a8a', holes: true, holeColor: '#ffffff' },
+  { id: 'custom', name: 'Customize', count: 3, color: '#e6e6e6', holes: false, caption: 'Editique', captionColor: '#151515', custom: true },
 ];
 
 // card size + photo slots (card units, card is always 400 wide)
