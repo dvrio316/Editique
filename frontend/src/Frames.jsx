@@ -43,8 +43,8 @@ function Adjust({ adj, setAdj, onUse, onCancel }) {
               top: `${((p.top + i * (p.height + p.gap)) / p.h) * 100}%`,
               width: `${(p.width / CARD_W) * 100}%`,
               height: `${(p.height / p.h) * 100}%`,
-              outline: '2px solid #e5484d',
-              background: 'rgba(125,223,154,0.35)',
+              outline: '2px solid #151515',
+              background: 'rgba(0,0,0,0.12)',
             }}
           />
         ))}
@@ -57,7 +57,7 @@ function Adjust({ adj, setAdj, onUse, onCancel }) {
       <Slider label="Gap" value={p.gap} min={0} max={200} onChange={set('gap')} />
       <div className="flex gap-3 justify-center pb-2">
         <button className="btn" onClick={onCancel}>cancel</button>
-        <button className="btn" style={{ background: '#7ddf9a' }} onClick={onUse}>use this frame</button>
+        <button className="btn" style={{ background: '#e6e6e6' }} onClick={onUse}>use this frame</button>
       </div>
     </div>
   );
@@ -139,7 +139,7 @@ export default function Frames({ onBack, onSelect }) {
       </main>
 
       <div className="shrink-0 flex flex-col items-center pb-4">
-        <button className="btn" style={{ background: '#7ddf9a', padding: '0.3rem 2rem', fontSize: 22 }} onClick={() => onSelect(f)}>
+        <button className="btn" style={{ background: '#e6e6e6', padding: '0.3rem 2rem', fontSize: 22 }} onClick={() => onSelect(f)}>
           select ●
         </button>
       </div>

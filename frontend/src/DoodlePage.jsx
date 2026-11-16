@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import CanvasStage, { clampScale } from './CanvasStage.jsx';
-import { BackgroundPanel, LayersPanel, StickersPanel, TextPanel } from './Panels.jsx';
+import { BackgroundPanel, FiltersPanel, StickersPanel, TextPanel } from './Panels.jsx';
 import { PRESETS, uid, useHistory } from './utils.js';
 import { layout } from './frames.js';
-import { api } from './api.js';
 
 /* ---- small inline icons so the bar looks like the prototype ---- */
 const Svg = ({ children }) => (
@@ -30,17 +29,33 @@ const IconEraser = () => (
     <path d="M13 20h8" />
   </Svg>
 );
-const IconLayers = () => (
-  <Svg>
-    <path d="M12 3l9 5-9 5-9-5z" fill="currentColor" />
-    <path d="M3 13l9 5 9-5" />
-  </Svg>
-);
 const IconImage = () => (
   <Svg>
     <rect x="3" y="4" width="18" height="16" rx="2" />
     <circle cx="9" cy="10" r="1.5" fill="currentColor" />
     <path d="M4 18l5-5 4 4 3-3 4 4" />
+  </Svg>
+);
+
+const IconPaint = ({ color }) => (
+  <Svg>
+    <path d="m19 11-8-8-8.6 8.6a2 2 0 0 0 0 2.8l5.2 5.2c.8.8 2 .8 2.8 0L19 11Z" />
+    <path d="m5 2 5 5" />
+    <path d="M2 13h15" />
+    <path d="M22 20a2 2 0 1 1-4 0c0-1.6 1.7-2.4 2-4 .3 1.6 2 2.4 2 4Z" fill={color} />
+  </Svg>
+);
+const IconPointer = () => (
+  <Svg>
+    <path d="M4.037 4.688a.495.495 0 0 1 .651-.651l16 6.5a.5.5 0 0 1-.063.947l-6.124 1.58a2 2 0 0 0-1.438 1.435l-1.579 6.126a.5.5 0 0 1-.947.063z" />
+  </Svg>
+);
+const IconHand = () => (
+  <Svg>
+    <path d="M18 11V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2" />
+    <path d="M14 10V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v2" />
+    <path d="M10 10.5V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2v8" />
+    <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" />
   </Svg>
 );
 
@@ -51,7 +66,7 @@ const Tool = ({ label, active, disabled, onClick, children, title }) => (
   </button>
 );
 
-export default function DoodlePage({ photos, frame, onBack, user, onNeedLogin, onGallery }) {
+export default function DoodlePage({ photos, frame, onBack }) {
   const L = layout(frame);
   const CARD_W = L.w;
   const CARD_H = L.h;
@@ -62,7 +77,7 @@ export default function DoodlePage({ photos, frame, onBack, user, onNeedLogin, o
     images: photos && photos.length === L.slots.length ? photos : L.slots.map((_, i) => PRESETS[i % PRESETS.length].src),
   });
   const [tool, setTool] = useState('pen');
-  const [penColor, setPenColor] = useState('#e5484d');
+  const [penColor, setPenColor] = useState('#151515');
   const [penSize, setPenSize] = useState(6);
   const [eraserSize, setEraserSize] = useState(24);
   const [smooth, setSmooth] = useState(4); // pen stabilizer 0-10
@@ -160,44 +175,37 @@ export default function DoodlePage({ photos, frame, onBack, user, onNeedLogin, o
     setSelectedId(copy.id);
   }, [selected, commit]);
 
-  const moveLayer = (id, dir) =>
-    commit((d) => {
-      const i = d.items.findIndex((x) => x.id === id);
-      const j = i + dir;
-      if (i < 0 || j < 0 || j >= d.items.length) return d;
-      const items = [...d.items];
-      [items[i], items[j]] = [items[j], items[i]];
-      return { ...d, items };
-    });
-
-  const toggleVisible = (id) =>
-    commit((d) => ({
-      ...d,
-      items: d.items.map((i) => (i.id === id ? { ...i, visible: i.visible === false } : i)),
-    }));
-
   // ---- export / print ----
-  const exportPng = () => {
+  const [saveView, setSaveView] = useState(null); // image shown for "press and hold to save" (iPhone fallback)
+  const exportPng = async () => {
     const url = stageRef.current.toDataURL();
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'editique-strip.png';
-    a.click();
-  };
-
-  // save the finished strip to the Django server (needs login)
-  const saveToServer = async () => {
-    if (!user) return onNeedLogin();
-    setToast('Saving…');
+    // build the file synchronously so the browser still counts this as a tap (needed by iOS share)
+    const [head, b64] = url.split(',');
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const blob = new Blob([bytes], { type: 'image/png' });
+    const file = new File([blob], 'editique-strip.png', { type: 'image/png' });
+    const ua = navigator.userAgent;
+    const ios = /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const phone = ios || /Android/i.test(ua);
     try {
-      const url = stageRef.current.toDataURL();
-      const blob = await (await fetch(url)).blob();
-      await api.saveStrip(blob, 'Editique strip');
-      setToast('Saved to My strips ✓');
+      if (phone && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'My Editique strip' }); // share sheet: Save Image / Photos
+        return;
+      }
     } catch (e) {
-      setToast(e.status === 401 ? 'Please log in again.' : e.message);
+      if (e.name === 'AbortError') return;
     }
-    setTimeout(() => setToast(''), 2800);
+    if (ios) return setSaveView(url); // old iPhone: press and hold the picture to save
+    const href = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = href;
+    a.download = 'editique-strip.png';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(href), 4000);
   };
 
   const printIt = () => {
@@ -274,14 +282,12 @@ export default function DoodlePage({ photos, frame, onBack, user, onNeedLogin, o
 
   return (
     <>
-      {toast && (
-        <button
-          className="note absolute top-16 left-1/2 -translate-x-1/2 z-40 px-4 py-2 text-base whitespace-nowrap"
-          onClick={() => toast.startsWith('Saved') && onGallery()}
-        >
-          {toast}
-          {toast.startsWith('Saved') && <span className="underline ml-2">view</span>}
-        </button>
+      {saveView && (
+        <div className="absolute inset-0 z-50 bg-white/95 flex flex-col items-center gap-3 p-4 overflow-y-auto">
+          <p className="hand text-xl text-center">press and hold the picture, then choose “Save to Photos”</p>
+          <img src={saveView} alt="Your strip" className="max-w-full max-h-[70%] border-2 border-[#151515]" style={{ WebkitTouchCallout: 'default', userSelect: 'auto' }} />
+          <button className="btn" onClick={() => setSaveView(null)}>done</button>
+        </div>
       )}
         {/* header: back, undo / redo, title, cloud save */}
         <header className="relative flex items-center justify-between gap-2 px-3 pt-3 pb-2 shrink-0">
@@ -291,7 +297,7 @@ export default function DoodlePage({ photos, frame, onBack, user, onNeedLogin, o
             <button className="icon-btn" onClick={redo} disabled={!canRedo} aria-label="Redo" title="Redo (Ctrl+Shift+Z)">↷</button>
           </div>
           <h1 className="title-box text-base">EDITIQUE</h1>
-          <button className="icon-btn" onClick={saveToServer} aria-label={user ? 'Save to cloud' : 'Log in to save'} title={user ? 'Save to your account' : 'Log in to save'}>☁</button>
+          <span style={{ width: 40 }} />
         </header>
 
         {/* pan / zoom canvas: pinch or Ctrl+scroll to zoom, two fingers / scroll / Hand tool / Space to pan */}
@@ -335,19 +341,7 @@ export default function DoodlePage({ photos, frame, onBack, user, onNeedLogin, o
               {panel === 'bg' && <BackgroundPanel doc={doc} commit={commit} />}
               {panel === 'stickers' && <StickersPanel onAdd={addSticker} />}
               {panel === 'text' && <TextPanel selected={selected} onAdd={addText} onChange={patchSelected} />}
-              {panel === 'layers' && (
-                <LayersPanel
-                  items={doc.items}
-                  selectedId={selectedId}
-                  onSelect={(id) => {
-                    setSelectedId(id);
-                    setTool('select');
-                  }}
-                  onMove={moveLayer}
-                  onToggle={toggleVisible}
-                  onRemove={removeItem}
-                />
-              )}
+              {panel === 'filters' && <FiltersPanel doc={doc} commit={commit} />}
             </div>
           </div>
         )}
@@ -371,11 +365,8 @@ export default function DoodlePage({ photos, frame, onBack, user, onNeedLogin, o
 
             {/* color wheel (pen color) */}
             <label className="tool cursor-pointer" title="Pen color">
-              <span className="dot wheel relative">
-                <span
-                  className="absolute rounded-full border-2 border-white"
-                  style={{ width: 16, height: 16, background: penColor, right: -2, bottom: -2 }}
-                />
+              <span className="dot relative">
+                <IconPaint color={penColor} />
                 <input
                   type="color"
                   value={penColor}
@@ -429,10 +420,10 @@ export default function DoodlePage({ photos, frame, onBack, user, onNeedLogin, o
               <IconEraser />
             </Tool>
             <Tool label="Select" active={tool === 'select'} onClick={() => setTool('select')} title="Select / move">
-              <span style={{ fontSize: 22 }}>☝</span>
+              <IconPointer />
             </Tool>
             <Tool label="Hand" active={tool === 'hand'} onClick={() => { setTool('hand'); setSelectedId(null); }} title="Move the canvas (or hold Space)">
-              <span style={{ fontSize: 22 }}>✋</span>
+              <IconHand />
             </Tool>
             <Tool label="Text" active={panel === 'text'} onClick={() => togglePanel('text')}>
               <b style={{ fontFamily: 'Libre Baskerville, serif' }}>Aa</b>
@@ -440,8 +431,8 @@ export default function DoodlePage({ photos, frame, onBack, user, onNeedLogin, o
             <Tool label="Photo/BG" active={panel === 'bg'} onClick={() => togglePanel('bg')}>
               <IconImage />
             </Tool>
-            <Tool label="Layers" active={panel === 'layers'} onClick={() => togglePanel('layers')}>
-              <IconLayers />
+            <Tool label="Filters" active={panel === 'filters'} onClick={() => togglePanel('filters')}>
+              <span style={{ fontSize: 24 }}>◐</span>
             </Tool>
 
             <Tool label="Save" onClick={exportPng}>

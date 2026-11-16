@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
-import { FONTS, PRESETS, STICKERS } from './utils.js';
+import { FONTS, PRESETS, STICKER_GROUPS } from './utils.js';
+import { FILTERS } from './filters.js';
 
 const Label = ({ children }) => <div className="font-marker text-sm mb-1 mt-2">{children}</div>;
 
@@ -33,7 +34,7 @@ export function BackgroundPanel({ doc, commit }) {
       <Label>Photo area color</Label>
       <div className="flex items-center gap-2">
         <input type="color" value={doc.bg} onChange={(e) => set({ bg: e.target.value }, 'bg')} />
-        {['#fff8e7', '#ffd6e0', '#d6f0ff', '#e2ffd6', '#2b2b2b'].map((c) => (
+        {['#ffffff', '#ececec', '#cfcfcf', '#8a8a8a', '#2b2b2b'].map((c) => (
           <button
             key={c}
             className="w-8 h-8 rounded-full border-2 border-[#2b2b2b]"
@@ -51,7 +52,7 @@ export function BackgroundPanel({ doc, commit }) {
           value={doc.frameColor}
           onChange={(e) => set({ frameColor: e.target.value }, 'frame')}
         />
-        {['#ffffff', '#fff3b0', '#ffc2d1', '#b8e0ff', '#222222'].map((c) => (
+        {['#ffffff', '#ececec', '#cfcfcf', '#8a8a8a', '#222222'].map((c) => (
           <button
             key={c}
             className="w-8 h-8 rounded-full border-2 border-[#2b2b2b]"
@@ -86,19 +87,48 @@ export function BackgroundPanel({ doc, commit }) {
 }
 
 export function StickersPanel({ onAdd }) {
+  const [g, setG] = useState(0);
   return (
     <div>
       <Label>Tap a sticker to add it</Label>
+      <div className="flex gap-2 mb-2">
+        {STICKER_GROUPS.map((grp, k) => (
+          <button key={k} className={`btn ${g === k ? 'active' : ''}`} style={{ minHeight: 40, padding: '0 10px', fontSize: 20 }} onClick={() => setG(k)} aria-label={`Sticker group ${k + 1}`}>
+            {grp.name}
+          </button>
+        ))}
+      </div>
       <div className="grid grid-cols-5 gap-2">
-        {STICKERS.map((s) => (
+        {STICKER_GROUPS[g].items.map((s) => (
           <button key={s} className="btn text-3xl" style={{ padding: 0, minHeight: 52 }} onClick={() => onAdd(s)}>
             {s}
           </button>
         ))}
       </div>
       <p className="text-sm mt-2 opacity-70">
-        Drag to move, corners to resize, top handle to rotate. ⧉ duplicates, ✕ deletes.
+        Drag to move. Turn it with the round handle above it, or twist with two fingers. Drag a corner or pinch to resize. ⧉ duplicates, ✕ deletes.
       </p>
+    </div>
+  );
+}
+
+export function FiltersPanel({ doc, commit }) {
+  const cur = doc.filter || 'none';
+  const thumb = doc.images[0];
+  return (
+    <div>
+      <Label>Filter for your photos</Label>
+      <div className="grid grid-cols-3 gap-2">
+        {FILTERS.map((f) => (
+          <button key={f.id} className={`btn ${cur === f.id ? 'active' : ''}`} style={{ padding: 4, minHeight: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }} onClick={() => commit((d) => ({ ...d, filter: f.id }))}>
+            <span className="block w-full overflow-hidden" style={{ height: 52, borderRadius: 6 }}>
+              <img src={thumb} alt="" className="w-full h-full object-cover" style={{ filter: f.css }} />
+            </span>
+            <span className="text-sm">{f.name}</span>
+          </button>
+        ))}
+      </div>
+      <p className="text-sm mt-2 opacity-70">Filters change the photos only. Your doodles, stickers and the frame keep their colors.</p>
     </div>
   );
 }
@@ -166,41 +196,3 @@ const nameOf = (it, i) =>
     : it.erase
     ? `🧽 erase #${i + 1}`
     : `✏️ doodle #${i + 1}`;
-
-export function LayersPanel({ items, selectedId, onSelect, onMove, onToggle, onRemove }) {
-  const rows = items.map((it, i) => ({ it, i })).reverse(); // top layer first
-  return (
-    <div>
-      <Label>Layers (top → bottom)</Label>
-      {rows.length === 0 && <p className="text-sm opacity-70">Nothing here yet. Go doodle!</p>}
-      <div className="flex flex-col gap-1">
-        {rows.map(({ it, i }) => (
-          <div
-            key={it.id}
-            className={`flex items-center gap-1 wobbly px-2 py-1 ${selectedId === it.id ? 'bg-[#ffe066]' : 'bg-[#fffdf5]'}`}
-          >
-            <button
-              className="flex-1 text-left truncate"
-              style={{ opacity: it.visible === false ? 0.4 : 1 }}
-              onClick={() => it.type !== 'stroke' && onSelect(it.id)}
-            >
-              {nameOf(it, i)}
-            </button>
-            <button title="Bring forward" disabled={i === items.length - 1} onClick={() => onMove(it.id, 1)}>
-              ⬆️
-            </button>
-            <button title="Send backward" disabled={i === 0} onClick={() => onMove(it.id, -1)}>
-              ⬇️
-            </button>
-            <button title="Show / hide" onClick={() => onToggle(it.id)}>
-              {it.visible === false ? '🙈' : '👁️'}
-            </button>
-            <button title="Delete" onClick={() => onRemove(it.id)}>
-              🗑️
-            </button>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
