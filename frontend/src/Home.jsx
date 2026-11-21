@@ -174,12 +174,10 @@ function CoinBooth({ onStart }) {
   );
 }
 
-export default function Home({ onStart, onSkip }) {
+export default function Home({ onStart }) {
   return (
-    <div className="relative flex-1 flex flex-col items-center overflow-y-auto scroll-hide px-5 pb-6">
-      <div className="pt-6" />
-
-      <h1 className="brand mt-1" aria-label="Editique">
+    <div className="relative flex-1 h-full flex flex-col items-center justify-center overflow-y-auto scroll-hide px-5 py-6">
+      <h1 className="brand" aria-label="Editique">
         <span className="brand-hl" aria-hidden />
         {'EDITIQUE'.split('').map((c, i) => (
           <span key={i} aria-hidden className="brand-letter" style={{ animationDelay: `${i * 0.09}s, ${1.4 + i * 0.12}s` }}>
@@ -187,7 +185,7 @@ export default function Home({ onStart, onSkip }) {
           </span>
         ))}
       </h1>
-      <p className="hand text-lg text-center -rotate-1 mb-2 tagline">photo booth · doodle studio</p>
+      <p className="hand text-lg text-center -rotate-1 mb-3 tagline">photo booth · doodle studio</p>
 
       <CoinBooth onStart={onStart} />
 

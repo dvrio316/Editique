@@ -199,7 +199,15 @@ export default function Camera({ onDone, onBack, frame }) {
           </button>
         ) : (
           <button className="tool" onClick={() => setRunning(true)} disabled={!ready}>
-            <span className="dot" style={{ width: 64, height: 64, background: '#151515', fontSize: 28 }}>●</span>
+            <span
+              className="dot flex items-center justify-center"
+              style={{ width: 64, height: 64, background: '#151515' }}
+            >
+              <span
+                className="rounded-full"
+                style={{ width: 15, height: 14, background: '#ffffff', display: 'block' }}
+              />
+            </span>
             <span className="font-marker">{shots.length ? 'Continue' : 'Start'}</span>
           </button>
         )}
