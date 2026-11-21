@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api } from './api.js';
+import { api, API_BASE } from './api.js';
 
 export default function SharedStrip({ token, onGoToBooth }) {
   const [data, setData] = useState(null);
@@ -42,12 +42,14 @@ export default function SharedStrip({ token, onGoToBooth }) {
     };
   }, [token]);
 
+  const imgUrl = data?.url ? (data.url.startsWith('http') ? data.url : API_BASE + data.url) : '';
+
   const handleDownload = async () => {
-    if (!data?.url) return;
+    if (!imgUrl) return;
     setDownloading(true);
     try {
       // Fetch image as blob for reliable cross-browser download
-      const res = await fetch(data.url);
+      const res = await fetch(imgUrl);
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -114,7 +116,7 @@ export default function SharedStrip({ token, onGoToBooth }) {
             {/* Strip image container */}
             <div className="card-shadow bg-white p-2 rounded-lg max-w-[280px]">
               <img
-                src={data.url}
+                src={imgUrl}
                 alt="Your Customized Photo Strip"
                 className="w-full block h-auto rounded"
                 style={{ WebkitTouchCallout: 'default', userSelect: 'auto' }}

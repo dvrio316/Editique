@@ -24,7 +24,17 @@ def home(request):
     return render(request, 'photobooth/home.html')
 
 
+
+def _cors(response):
+    response['Access-Control-Allow-Origin'] = '*'
+    response['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+    response['Access-Control-Allow-Headers'] = 'Content-Type, X-CSRFToken, Authorization'
+    return response
+
 def _err(message, status=400):
+    return _cors(JsonResponse({'error': message}, status=status))
+
+def _err_orig(message, status=400):
     return JsonResponse({'error': message}, status=status)
 
 
@@ -32,11 +42,14 @@ def _user(u):
     return {'id': u.id, 'username': u.username}
 
 
-def _strip(s):
+def _strip(s, request=None):
+    url = s.image.url
+    if request and not url.startswith('http'):
+        url = request.build_absolute_uri(url)
     return {
         'id': s.id,
         'title': s.title,
-        'url': s.image.url,
+        'url': url,
         'access_token': s.access_token,
         'created_at': s.created_at.isoformat() if s.created_at else None,
         'expires_at': s.expires_at.isoformat() if s.expires_at else None,
@@ -68,10 +81,12 @@ def _generate_qr_data_url(data_str):
 # ---------- auth ----------
 
 @ensure_csrf_cookie
-@require_GET
+@require_http_methods(['GET', 'OPTIONS'])
 def csrf(request):
     """Sets the csrftoken cookie. The frontend calls this once on load."""
-    return JsonResponse({'ok': True})
+    if request.method == 'OPTIONS':
+        return _cors(JsonResponse({'ok': True}))
+    return _cors(JsonResponse({'ok': True}))
 
 
 @require_GET
@@ -152,8 +167,10 @@ def strip_detail(request, pk):
 # ---------- finish & qr code sharing ----------
 
 @csrf_exempt
-@require_POST
+@require_http_methods(['POST', 'OPTIONS'])
 def finish_strip(request):
+    if request.method == 'OPTIONS':
+        return _cors(JsonResponse({'ok': True}))
     """
     Finalize a customized photo strip, save it, set 24h expiration,
     and generate a unique QR code.
@@ -191,17 +208,20 @@ def finish_strip(request):
     access_url = f"{origin}/?strip={strip.access_token}"
     qr_code_data = _generate_qr_data_url(access_url)
 
-    return JsonResponse({
-        'strip': _strip(strip),
+    return _cors(JsonResponse({
+        'strip': _strip(strip, request),
         'access_token': strip.access_token,
         'access_url': access_url,
         'qr_code': qr_code_data,
         'expires_at': strip.expires_at.isoformat(),
-    }, status=201)
+    }, status=201))
 
 
-@require_GET
+@csrf_exempt
+@require_http_methods(['GET', 'OPTIONS'])
 def shared_strip(request, token):
+    if request.method == 'OPTIONS':
+        return _cors(JsonResponse({'ok': True}))
     """
     Retrieve shared customized photo strip metadata by token.
     Validates token and backend 24-hour expiration.
@@ -211,12 +231,12 @@ def shared_strip(request, token):
         return _err('Invalid QR code. Photo strip not found.', 404)
 
     if strip.is_expired():
-        return JsonResponse({
+        return _cors(JsonResponse({
             'error': 'This QR code has expired. Please generate a new one to access your photo strip.',
             'expired': True,
-        }, status=410)
+        }, status=410))
 
-    return JsonResponse({
+    return _cors(JsonResponse({
         'strip': {
             'id': strip.id,
             'title': strip.title,
@@ -225,11 +245,14 @@ def shared_strip(request, token):
             'created_at': strip.created_at.isoformat() if strip.created_at else None,
             'expires_at': strip.expires_at.isoformat() if strip.expires_at else None,
         }
-    })
+    }))
 
 
-@require_GET
+@csrf_exempt
+@require_http_methods(['GET', 'OPTIONS'])
 def download_shared_strip(request, token):
+    if request.method == 'OPTIONS':
+        return _cors(JsonResponse({'ok': True}))
     """
     Direct download endpoint for a shared customized photo strip with expiration check.
     """

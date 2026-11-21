@@ -1,7 +1,13 @@
 // Small client for the Django API. In dev, Vite forwards /api and /media to Django (vite.config.js).
 // Uses Django's session cookie + CSRF token, so no extra packages are needed.
 
+export const API_BASE =
+  typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')
+    ? 'https://editique.onrender.com'
+    : '';
+
 const getCookie = (name) => {
+
   const hit = document.cookie.split('; ').find((r) => r.startsWith(name + '='));
   return hit ? decodeURIComponent(hit.split('=')[1]) : '';
 };
@@ -19,7 +25,7 @@ async function request(path, { method = 'GET', json, form } = {}) {
 
   let res;
   try {
-    res = await fetch('/api' + path, { method, headers, body, credentials: 'same-origin' });
+    res = await fetch(API_BASE + '/api' + path, { method, headers, body });
   } catch {
     throw Object.assign(new Error('Cannot reach the server. Is Django running?'), { status: 0 });
   }
