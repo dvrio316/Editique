@@ -1,12 +1,6 @@
 {
   "rewrites": [
-    {
-      "source": "/api/:path*",
-      "destination": "https://editique.onrender.com/api/:path*"
-    },
-    {
-      "source": "/media/:path*",
-      "destination": "https://editique.onrender.com/media/:path*"
-    }
+    { "source": "/api/(.*)", "destination": "https://editique.onrender.com/api/$1" },
+    { "source": "/media/(.*)", "destination": "https://editique.onrender.com/media/$1" }
   ]
 }
