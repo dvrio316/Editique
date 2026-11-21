@@ -25,7 +25,10 @@ async function request(path, { method = 'GET', json, form } = {}) {
   }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw Object.assign(new Error(data.error || `Request failed (${res.status})`), { status: res.status });
+    throw Object.assign(new Error(data.error || `Request failed (${res.status})`), {
+      status: res.status,
+      expired: data.expired,
+    });
   }
   return data;
 }
@@ -43,5 +46,15 @@ export const api = {
     form.append('title', title);
     return request('/strips/', { method: 'POST', form });
   },
+  finishStrip: (blob, { title = '', origin } = {}) => {
+    const form = new FormData();
+    form.append('image', blob, 'strip.png');
+    if (title) form.append('title', title);
+    if (origin || typeof window !== 'undefined') {
+      form.append('origin', origin || window.location.origin);
+    }
+    return request('/strips/finish/', { method: 'POST', form });
+  },
+  getSharedStrip: (token) => request(`/strips/shared/${token}/`),
   deleteStrip: (id) => request(`/strips/${id}/`, { method: 'DELETE' }),
 };

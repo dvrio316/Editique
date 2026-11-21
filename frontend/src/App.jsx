@@ -1,16 +1,58 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Home from './Home.jsx';
 import Camera from './Camera.jsx';
 import DoodlePage from './DoodlePage.jsx';
 import Frames from './Frames.jsx';
+import QrCodeScreen from './QrCodeScreen.jsx';
+import SharedStrip from './SharedStrip.jsx';
 import { BUILTIN } from './frames.js';
+import { api } from './api.js';
 
-// Flow: home (coin) -> choose a frame -> camera -> doodle
+function getInitialToken() {
+  if (typeof window === 'undefined') return null;
+  const params = new URLSearchParams(window.location.search);
+  const tokenParam = params.get('strip') || params.get('token');
+  if (tokenParam) return tokenParam;
+  const match = window.location.pathname.match(/\/strip\/([a-zA-Z0-9_-]+)/);
+  return match ? match[1] : null;
+}
+
+// Flow: home (coin) -> choose a frame -> camera -> doodle -> qr code
 export default function App() {
-  const [screen, setScreen] = useState('home');
+  const initialToken = getInitialToken();
+  const [screen, setScreen] = useState(initialToken ? 'view-strip' : 'home');
+  const [sharedToken, setSharedToken] = useState(initialToken);
   const [photos, setPhotos] = useState(null);
   const [frame, setFrame] = useState(BUILTIN[0]);
   const [session, setSession] = useState(0); // remount the doodle page for each new strip
+  const [qrData, setQrData] = useState(null);
+
+  useEffect(() => {
+    api.csrf().catch(() => {});
+  }, []);
+
+  const handleFinish = async (blob) => {
+    const res = await api.finishStrip(blob);
+    setQrData(res);
+    setScreen('qr');
+  };
+
+  const handleDone = () => {
+    setPhotos(null);
+    setQrData(null);
+    setSession((s) => s + 1);
+    setScreen('home');
+  };
+
+  const handleGoToBooth = () => {
+    if (typeof window !== 'undefined' && window.history?.replaceState) {
+      window.history.replaceState({}, '', '/');
+    }
+    setSharedToken(null);
+    setPhotos(null);
+    setSession((s) => s + 1);
+    setScreen('home');
+  };
 
   return (
     <div className="h-full flex items-center justify-center">
@@ -52,7 +94,28 @@ export default function App() {
             }}
           />
         )}
-        {screen === 'doodle' && <DoodlePage key={session} photos={photos} frame={frame} onBack={() => setScreen('camera')} />}
+        {screen === 'doodle' && (
+          <DoodlePage
+            key={session}
+            photos={photos}
+            frame={frame}
+            onBack={() => setScreen('camera')}
+            onFinish={handleFinish}
+          />
+        )}
+        {screen === 'qr' && (
+          <QrCodeScreen
+            qrData={qrData}
+            onBack={() => setScreen('doodle')}
+            onDone={handleDone}
+          />
+        )}
+        {screen === 'view-strip' && (
+          <SharedStrip
+            token={sharedToken}
+            onGoToBooth={handleGoToBooth}
+          />
+        )}
       </div>
     </div>
   );

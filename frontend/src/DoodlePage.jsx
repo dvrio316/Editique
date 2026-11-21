@@ -66,7 +66,7 @@ const Tool = ({ label, active, disabled, onClick, children, title }) => (
   </button>
 );
 
-export default function DoodlePage({ photos, frame, onBack }) {
+export default function DoodlePage({ photos, frame, onBack, onFinish }) {
   const L = layout(frame);
   const CARD_W = L.w;
   const CARD_H = L.h;
@@ -88,6 +88,7 @@ export default function DoodlePage({ photos, frame, onBack }) {
   const [panel, setPanel] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
   const [toast, setToast] = useState('');
+  const [finishing, setFinishing] = useState(false);
   const stageRef = useRef(null);
   const barRef = useRef(null);
   const [barEnd, setBarEnd] = useState(false);
@@ -180,7 +181,7 @@ export default function DoodlePage({ photos, frame, onBack }) {
   const exportPng = async () => {
     const url = stageRef.current.toDataURL();
     // build the file synchronously so the browser still counts this as a tap (needed by iOS share)
-    const [head, b64] = url.split(',');
+    const [, b64] = url.split(',');
     const bin = atob(b64);
     const bytes = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
@@ -226,6 +227,29 @@ export default function DoodlePage({ photos, frame, onBack }) {
     };
     img.complete ? go() : (img.onload = go);
   };
+
+  const handleFinish = async () => {
+    if (finishing) return;
+    if (!stageRef.current) return;
+    setFinishing(true);
+    try {
+      const url = stageRef.current.toDataURL();
+      const [, b64] = url.split(',');
+      const bin = atob(b64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const blob = new Blob([bytes], { type: 'image/png' });
+      if (onFinish) {
+        await onFinish(blob);
+      }
+    } catch (err) {
+      console.error(err);
+      alert(err.message || 'Failed to finish photo strip.');
+    } finally {
+      setFinishing(false);
+    }
+  };
+
 
   // ---- pan / zoom viewport ----
   const fit = useCallback((w, h) => {
@@ -297,7 +321,15 @@ export default function DoodlePage({ photos, frame, onBack }) {
             <button className="icon-btn" onClick={redo} disabled={!canRedo} aria-label="Redo" title="Redo (Ctrl+Shift+Z)">↷</button>
           </div>
           <h1 className="title-box text-base">EDITIQUE</h1>
-          <span style={{ width: 40 }} />
+          <button
+            className="btn text-sm font-marker px-3 py-1"
+            style={{ minHeight: 38 }}
+            onClick={handleFinish}
+            disabled={finishing}
+            title="Finish and generate QR code"
+          >
+            {finishing ? 'Saving…' : 'Finish ✓'}
+          </button>
         </header>
 
         {/* pan / zoom canvas: pinch or Ctrl+scroll to zoom, two fingers / scroll / Hand tool / Space to pan */}
@@ -440,6 +472,9 @@ export default function DoodlePage({ photos, frame, onBack }) {
             </Tool>
             <Tool label="Print" onClick={printIt}>
               ⎙
+            </Tool>
+            <Tool label="Finish" onClick={handleFinish} disabled={finishing} title="Finish and generate QR code">
+              <span style={{ fontSize: 22 }}>✓</span>
             </Tool>
           </div>
 

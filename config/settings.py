@@ -17,7 +17,9 @@ if not SECRET_KEY:
     else:
         raise RuntimeError('SECRET_KEY environment variable is not set')
 
-ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "").split(",")
+ALLOWED_HOSTS = [h.strip() for h in os.environ.get("ALLOWED_HOSTS", "").split(",") if h.strip()]
+if not ALLOWED_HOSTS:
+    ALLOWED_HOSTS = ['*'] if DEBUG else []
 
 
 # Application definition
